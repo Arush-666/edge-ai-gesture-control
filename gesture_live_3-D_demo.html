@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Edge AI Gesture Control — Two-Slide 3D Demo</title>
+<style>
+  :root {
+    --bg: #070b14;
+    --panel: #0f172a;
+    --panel-2: #1e293b;
+    --border: #334155;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --purple: #a855f7;
+    --rose: #f43f5e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    flex-wrap: wrap;
+    z-index: 20;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand h1 { font-size: 1.05rem; font-weight: 800; }
+  .chip {
+    background: rgba(56, 189, 248, 0.14);
+    color: var(--accent);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  /* Slide Switcher Pills */
+  .slide-tabs {
+    display: flex;
+    background: var(--bg);
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    gap: 4px;
+  }
+  .tab-btn {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 7px 14px;
+    border-radius: 7px;
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    background: var(--panel-2);
+    color: var(--accent);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+
+  /* Gesture & USB Controls */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .g-btn {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 7px 13px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .g-btn:hover { border-color: var(--accent); }
+  .g-btn.active {
+    background: var(--accent);
+    color: #090d16;
+    border-color: var(--accent);
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
+  }
+  .usb-btn {
+    background: rgba(34, 197, 94, 0.16);
+    color: var(--green);
+    border: 1px solid rgba(34, 197, 94, 0.45);
+    padding: 7px 13px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .usb-btn.connected { background: var(--green); color: #052e16; }
+  .live-badge {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .live-badge strong { color: var(--accent); }
+
+  /* Main Slide Viewport */
+  main {
+    flex: 1;
+    padding: 20px 28px;
+    display: flex;
+    min-height: 0;
+  }
+  .slide-view {
+    display: none;
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    grid-template-columns: 1.45fr 1fr;
+  }
+  .slide-view.active {
+    display: grid;
+    animation: fadeIn 0.25s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* Left 3D Stage */
+  .stage-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .stage-top {
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(15, 23, 42, 0.85);
+    border-bottom: 1px solid var(--border);
+    z-index: 5;
+  }
+  .stage-top h2 { font-size: 1.15rem; font-weight: 800; }
+  .state-pill {
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    background: rgba(56, 189, 248, 0.16);
+    color: var(--accent);
+  }
+
+  /* Right Action Cards Panel */
+  .actions-panel {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: #0b1120;
+    overflow-y: auto;
+  }
+  .panel-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .action-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    justify-content: center;
+  }
+  .action-card {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: all 0.25s ease;
+    cursor: pointer;
+  }
+  .action-card.active {
+    border-color: var(--accent);
+    background: rgba(56, 189, 248, 0.1);
+    transform: translateX(4px);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+  }
+  .action-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .gesture-tag {
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--accent);
+  }
+  .action-card.active .gesture-tag {
+    background: var(--accent);
+    color: #090d16;
+  }
+  .action-card h3 { font-size: 0.98rem; font-weight: 700; }
+  .action-card p { font-size: 0.83rem; color: var(--muted); line-height: 1.4; }
+
+  /* =========================================================
+     SLIDE 1: 3D ROBOTIC ARM VISUALIZATION
+     ========================================================= */
+  .arm-canvas {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 35%, #172554 0%, #050811 85%);
+  }
+  .grid-floor {
+    position: absolute;
+    bottom: -35px;
+    width: 150%;
+    height: 240px;
+    background-image:
+      linear-gradient(to right, rgba(56, 189, 248, 0.22) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(56, 189, 248, 0.22) 1px, transparent 1px);
+    background-size: 42px 42px;
+    transform: perspective(360px) rotateX(68deg);
+    pointer-events: none;
+  }
+  #armSvg {
+    width: 100%;
+    height: 100%;
+    max-width: 560px;
+    max-height: 460px;
+    z-index: 2;
+    filter: drop-shadow(0 20px 28px rgba(0, 0, 0, 0.75));
+  }
+  .joint-smooth { transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1); }
+
+  /* =========================================================
+     SLIDE 2: 3D SMART LIGHT ROOM VISUALIZATION (4 MODES)
+     ========================================================= */
+  .room-canvas {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #04060b;
+    transition: background 0.6s ease;
+    padding: 24px;
+  }
+  .room-3d {
+    width: 100%;
+    height: 100%;
+    max-width: 620px;
+    max-height: 440px;
+    position: relative;
+    border-radius: 16px;
+    border: 2px solid #27272a;
+    background: linear-gradient(180deg, #090d16 0%, #111827 72%, #070a12 100%);
+    box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.95);
+    transition: all 0.55s ease;
+    overflow: hidden;
+  }
+  /* Light Modes Styling */
+  .room-3d.mode-on {
+    border-color: #f59e0b;
+    background: linear-gradient(180deg, #451a03 0%, #92400e 65%, #292524 100%);
+    box-shadow: inset 0 0 90px rgba(253, 224, 71, 0.4), 0 0 50px rgba(245, 158, 11, 0.3);
+  }
+  .room-3d.mode-ambient {
+    border-color: #38bdf8;
+    background: linear-gradient(180deg, #0c4a6e 0%, #1e1b4b 68%, #0f172a 100%);
+    box-shadow: inset 0 0 90px rgba(56, 189, 248, 0.35), 0 0 50px rgba(168, 85, 247, 0.28);
+  }
+  .room-3d.mode-dim {
+    border-color: #d97706;
+    background: linear-gradient(180deg, #271304 0%, #451a03 70%, #141210 100%);
+    box-shadow: inset 0 0 70px rgba(245, 158, 11, 0.22);
+  }
+
+  .light-cone {
+    position: absolute;
+    top: 66px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 520px;
+    height: 380px;
+    clip-path: polygon(42% 0%, 58% 0%, 100% 100%, 0% 100%);
+    opacity: 0;
+    transition: all 0.5s ease;
+    pointer-events: none;
+  }
+  .room-3d.mode-on .light-cone {
+    opacity: 1;
+    background: radial-gradient(ellipse at top, rgba(254, 240, 138, 0.72) 0%, rgba(253, 186, 116, 0.2) 55%, transparent 78%);
+  }
+  .room-3d.mode-ambient .light-cone {
+    opacity: 1;
+    background: radial-gradient(ellipse at top, rgba(56, 189, 248, 0.65) 0%, rgba(168, 85, 247, 0.25) 55%, transparent 78%);
+  }
+  .room-3d.mode-dim .light-cone {
+    opacity: 0.75;
+    background: radial-gradient(ellipse at top, rgba(251, 146, 60, 0.45) 0%, rgba(217, 119, 6, 0.12) 55%, transparent 78%);
+  }
+
+  .ceiling-cord {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 38px; background: #475569;
+  }
+  .lamp-shade {
+    position: absolute; top: 36px; left: 50%; transform: translateX(-50%);
+    width: 82px; height: 28px; background: linear-gradient(180deg, #334155, #1e293b);
+    border-radius: 40px 40px 6px 6px; z-index: 3;
+  }
+  .bulb {
+    position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 36px; border-radius: 50%; background: #334155;
+    transition: all 0.45s ease; z-index: 2;
+  }
+  .room-3d.mode-on .bulb {
+    background: #fef9c3;
+    box-shadow: 0 0 38px 15px #fde047, 0 0 85px 32px rgba(245, 158, 11, 0.85);
+  }
+  .room-3d.mode-ambient .bulb {
+    background: #e0f2fe;
+    box-shadow: 0 0 38px 15px #38bdf8, 0 0 85px 32px rgba(168, 85, 247, 0.85);
+  }
+  .room-3d.mode-dim .bulb {
+    background: #fed7aa;
+    box-shadow: 0 0 24px 10px #fb923c, 0 0 55px 20px rgba(234, 88, 12, 0.6);
+  }
+
+  .room-floor {
+    position: absolute; bottom: 0; width: 100%; height: 26%;
+    background: #070a10; border-top: 1px solid #1e293b; transition: all 0.55s ease;
+  }
+  .room-3d.mode-on .room-floor { background: linear-gradient(180deg, #78350f 0%, #1c1917 100%); border-top-color: #d97706; }
+  .room-3d.mode-ambient .room-floor { background: linear-gradient(180deg, #1e1b4b 0%, #090d16 100%); border-top-color: #38bdf8; }
+  .room-3d.mode-dim .room-floor { background: linear-gradient(180deg, #431407 0%, #141210 100%); border-top-color: #9a3412; }
+
+  .room-desk {
+    position: absolute; bottom: 17%; left: 50%; transform: translateX(-50%);
+    width: 220px; height: 58px; background: #111827; border: 2px solid #1f2937;
+    border-radius: 10px 10px 0 0; transition: all 0.55s ease;
+  }
+  .room-3d.mode-on .room-desk { background: #92400e; border-color: #f59e0b; }
+  .room-3d.mode-ambient .room-desk { background: #1e293b; border-color: #38bdf8; }
+  .room-3d.mode-dim .room-desk { background: #451a03; border-color: #b45309; }
+
+  .wall-switch {
+    position: absolute; right: 32px; top: 42%; width: 52px; height: 78px;
+    background: #1e293b; border: 2px solid #475569; border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  }
+  .switch-rocker { width: 22px; height: 34px; border-radius: 5px; background: #475569; transition: all 0.3s; }
+  .room-3d.mode-on .switch-rocker { background: #facc15; box-shadow: 0 0 12px #facc15; }
+  .room-3d.mode-ambient .switch-rocker { background: #38bdf8; box-shadow: 0 0 12px #38bdf8; }
+  .room-3d.mode-dim .switch-rocker { background: #fb923c; box-shadow: 0 0 12px #fb923c; }
+
+  /* Footer Navigation */
+  footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 28px; background: var(--panel); border-top: 1px solid var(--border);
+    font-size: 0.85rem; color: var(--muted);
+  }
+  .nav-btn {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    padding: 6px 16px; border-radius: 8px; font-weight: 700; cursor: pointer;
+  }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media (max-width: 900px) {
+    .slide-view.active { grid-template-columns: 1fr; overflow-y: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>⚡ Edge AI Gesture Control</h1>
+    <span class="chip">Arduino UNO Q + MPU6050</span>
+  </div>
+
+  <!-- Slide Switcher so Robotic Arm and Light Room never collide -->
+  <div class="slide-tabs">
+    <button class="tab-btn active" id="tab-0" onclick="switchSlide(0)">Slide 1: 🦾 6-DOF Robotic Arm</button>
+    <button class="tab-btn" id="tab-1" onclick="switchSlide(1)">Slide 2: 💡 Smart Light Room</button>
+  </div>
+
+  <div class="controls">
+    <button class="g-btn active" id="btn-idle" onclick="handleGesture('idle', 0.98)">IDLE</button>
+    <button class="g-btn" id="btn-up_down" onclick="handleGesture('up_down', 0.96)">UP / DOWN</button>
+    <button class="g-btn" id="btn-circle" onclick="handleGesture('circle', 0.95)">CIRCLE</button>
+    <button class="g-btn" id="btn-wave" onclick="handleGesture('wave', 0.97)">WAVE</button>
+    <button class="usb-btn" id="usbBtn" onclick="connectArduinoUSB()">🔌 Connect Arduino</button>
+    <div class="live-badge">Live: <strong id="statusText">IDLE (98%)</strong></div>
+  </div>
+</header>
+
+<main>
+  <!-- =========================================================
+       SLIDE 1: 6-DOF ROBOTIC ARM (4 DISTINCT 3D OUTCOMES)
+       ========================================================= -->
+  <section class="slide-view active" id="slide-0">
+    <div class="stage-wrap">
+      <div class="stage-top">
+        <h2>🦾 Slide 1: 6-DOF Robotic Arm Kinematics</h2>
+        <span class="state-pill" id="armStatePill">1. HOME POSITION (IDLE)</span>
+      </div>
+
+      <div class="arm-canvas">
+        <div class="grid-floor"></div>
+        <svg id="armSvg" viewBox="0 0 460 360">
+          <defs>
+            <linearGradient id="metalGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#475569" />
+              <stop offset="50%" stop-color="#e2e8f0" />
+              <stop offset="100%" stop-color="#334155" />
+            </linearGradient>
+            <linearGradient id="armBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8" />
+              <stop offset="100%" stop-color="#0284c7" />
+            </linearGradient>
+            <radialGradient id="jointGlow">
+              <stop offset="0%" stop-color="#ffffff" />
+              <stop offset="55%" stop-color="#38bdf8" />
+              <stop offset="100%" stop-color="#0f172a" />
+            </radialGradient>
+          </defs>
+
+          <!-- 3D Base Pedestal -->
+          <ellipse cx="230" cy="316" rx="90" ry="22" fill="#090d16" stroke="#38bdf8" stroke-width="2" />
+          <path d="M162 316 L178 280 L282 280 L298 316 Z" fill="url(#metalGrad)" />
+          <ellipse cx="230" cy="280" rx="52" ry="13" fill="#1e293b" stroke="#64748b" stroke-width="1.5" />
+
+          <!-- Turret Base (Shifts/Rotates on CIRCLE) -->
+          <g id="turretGroup" class="joint-smooth" transform="translate(0, 0)">
+            <rect x="202" y="246" width="56" height="34" rx="8" fill="url(#armBlue)" />
+            <circle cx="230" cy="252" r="19" fill="url(#jointGlow)" />
+
+            <!-- Shoulder Boom (Lifts vertically on UP_DOWN) -->
+            <g id="shoulderJoint" class="joint-smooth" transform="rotate(-10, 230, 252)">
+              <rect x="217" y="136" width="26" height="116" rx="13" fill="url(#metalGrad)" stroke="#94a3b8" stroke-width="1.5" />
+              <line x1="206" y1="242" x2="213" y2="174" stroke="#38bdf8" stroke-width="4.5" stroke-linecap="round" />
+
+              <!-- Elbow Joint -->
+              <circle cx="230" cy="136" r="17" fill="url(#jointGlow)" />
+
+              <!-- Forearm -->
+              <g id="elbowJoint" class="joint-smooth" transform="rotate(48, 230, 136)">
+                <rect x="219" y="40" width="22" height="96" rx="11" fill="url(#armBlue)" stroke="#7dd3fc" stroke-width="1.5" />
+                <circle cx="230" cy="40" r="13" fill="#ffffff" stroke="#38bdf8" stroke-width="3" />
+
+                <!-- Claw Gripper (Clamps closed on WAVE) -->
+                <g id="gripperGroup" transform="translate(230, 40)">
+                  <path id="clawLeft" class="joint-smooth" d="M -6 0 L -24 -20 L -12 -36" fill="none" stroke="#f59e0b" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" />
+                  <path id="clawRight" class="joint-smooth" d="M 6 0 L 24 -20 L 12 -36" fill="none" stroke="#f59e0b" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" />
+                </g>
+              </g>
+            </g>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 4 Distinct Gesture Outcomes for Robotic Arm -->
+    <div class="actions-panel">
+      <div class="panel-title">4 Robotic Arm Outcomes (Click or Perform Gesture)</div>
+      <div class="action-list">
+        <div class="action-card active" id="arm-card-idle" onclick="handleGesture('idle', 0.98)">
+          <div class="action-card-header">
+            <h3>1. Home Standby & Brake Lock</h3>
+            <span class="gesture-tag">IDLE</span>
+          </div>
+          <p>Holds all 6 servo joints stationary at neutral resting angles (`Z = 0 mm`).</p>
+        </div>
+
+        <div class="action-card" id="arm-card-up_down" onclick="handleGesture('up_down', 0.96)">
+          <div class="action-card-header">
+            <h3>2. Vertical Boom Lift (+90 mm)</h3>
+            <span class="gesture-tag">UP / DOWN</span>
+          </div>
+          <p>Extends shoulder and elbow upward to raise payload vertically along the Z-axis.</p>
+        </div>
+
+        <div class="action-card" id="arm-card-circle" onclick="handleGesture('circle', 0.95)">
+          <div class="action-card-header">
+            <h3>3. Base Turret Swing (90&deg; Yaw)</h3>
+            <span class="gesture-tag">CIRCLE</span>
+          </div>
+          <p>Rotates the base turret and sweeps forearm horizontally to a new workstation.</p>
+        </div>
+
+        <div class="action-card" id="arm-card-wave" onclick="handleGesture('wave', 0.97)">
+          <div class="action-card-header">
+            <h3>4. End-Effector Claw Clamp</h3>
+            <span class="gesture-tag">WAVE</span>
+          </div>
+          <p>Closes the mechanical gripper jaws tightly to grasp or release an object.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       SLIDE 2: SMART LIGHT ROOM (4 DISTINCT 3D LIGHTING SCENES)
+       ========================================================= -->
+  <section class="slide-view" id="slide-1">
+    <div class="stage-wrap">
+      <div class="stage-top">
+        <h2>💡 Slide 2: Smart Room Lighting Control</h2>
+        <span class="state-pill" id="lightStatePill">1. LIGHTS OFF (STANDBY)</span>
+      </div>
+
+      <div class="room-canvas">
+        <div class="room-3d" id="room3d">
+          <div class="ceiling-cord"></div>
+          <div class="lamp-shade"></div>
+          <div class="bulb"></div>
+          <div class="light-cone"></div>
+
+          <div class="wall-switch">
+            <div class="switch-rocker"></div>
+            <span style="font-size: 0.62rem; font-weight: 800; color: #cbd5e1;" id="switchText">OFF</span>
+          </div>
+
+          <div class="room-desk"></div>
+          <div class="room-floor"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 Distinct Gesture Outcomes for Smart Light Room -->
+    <div class="actions-panel">
+      <div class="panel-title">4 Smart Room Outcomes (Click or Perform Gesture)</div>
+      <div class="action-list">
+        <div class="action-card active" id="light-card-idle" onclick="handleGesture('idle', 0.98)">
+          <div class="action-card-header">
+            <h3>1. Lights OFF (Power Save)</h3>
+            <span class="gesture-tag">IDLE</span>
+          </div>
+          <p>Relay Pin D4 is LOW (0V). Room stays dark in power-saving standby mode.</p>
+        </div>
+
+        <div class="action-card" id="light-card-up_down" onclick="handleGesture('up_down', 0.96)">
+          <div class="action-card-header">
+            <h3>2. Full Bright Room Light (100%)</h3>
+            <span class="gesture-tag">UP / DOWN</span>
+          </div>
+          <p>Switches main ceiling lamp ON at full warm daylight brightness (`PWM 100%`).</p>
+        </div>
+
+        <div class="action-card" id="light-card-circle" onclick="handleGesture('circle', 0.95)">
+          <div class="action-card-header">
+            <h3>3. Cool Cyan Ambient Mood Mode</h3>
+            <span class="gesture-tag">CIRCLE</span>
+          </div>
+          <p>Switches RGB smart bulb to relaxing cool cyan/indigo ambient lighting.</p>
+        </div>
+
+        <div class="action-card" id="light-card-wave" onclick="handleGesture('wave', 0.97)">
+          <div class="action-card-header">
+            <h3>4. Warm Night-Lamp Dim Mode (30%)</h3>
+            <span class="gesture-tag">WAVE</span>
+          </div>
+          <p>Dims ceiling fixture to a soft amber night-light glow (`PWM 30%`).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <button class="nav-btn" onclick="switchSlide(0)">&larr; Slide 1: Robotic Arm</button>
+  <span>Only the active slide responds to your gestures — zero collision between demos</span>
+  <button class="nav-btn" onclick="switchSlide(1)">Slide 2: Light Room &rarr;</button>
+</footer>
+
+<script>
+  let activeSlide = 0;
+
+  function switchSlide(index) {
+    activeSlide = index;
+    document.querySelectorAll('.slide-view').forEach((s, i) => s.classList.toggle('active', i === index));
+    document.querySelectorAll('.tab-btn').forEach((t, i) => t.classList.toggle('active', i === index));
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') switchSlide(1);
+    if (e.key === 'ArrowLeft') switchSlide(0);
+  });
+
+  function handleGesture(gesture, confidence = 0.96) {
+    // Update top header buttons & live badge
+    document.querySelectorAll('.g-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('btn-' + gesture);
+    if (btn) btn.classList.add('active');
+    document.getElementById('statusText').textContent = `${gesture.toUpperCase()} (${Math.round(confidence * 100)}%)`;
+
+    // SLIDE 1 ONLY: 6-DOF Robotic Arm (4 distinct visible poses)
+    if (activeSlide === 0) {
+      document.querySelectorAll('#slide-0 .action-card').forEach(c => c.classList.remove('active'));
+      const activeCard = document.getElementById('arm-card-' + gesture);
+      if (activeCard) activeCard.classList.add('active');
+
+      const turret = document.getElementById('turretGroup');
+      const shoulder = document.getElementById('shoulderJoint');
+      const elbow = document.getElementById('elbowJoint');
+      const clawLeft = document.getElementById('clawLeft');
+      const clawRight = document.getElementById('clawRight');
+      const pill = document.getElementById('armStatePill');
+
+      if (gesture === 'idle') {
+        turret.setAttribute('transform', 'translate(0, 0)');
+        shoulder.setAttribute('transform', 'rotate(-10, 230, 252)');
+        elbow.setAttribute('transform', 'rotate(48, 230, 136)');
+        clawLeft.setAttribute('transform', 'rotate(0, -6, 0)');
+        clawRight.setAttribute('transform', 'rotate(0, 6, 0)');
+        pill.textContent = '1. HOME POSITION (IDLE)';
+      } else if (gesture === 'up_down') {
+        turret.setAttribute('transform', 'translate(0, 0)');
+        shoulder.setAttribute('transform', 'rotate(-38, 230, 252)');
+        elbow.setAttribute('transform', 'rotate(22, 230, 136)');
+        clawLeft.setAttribute('transform', 'rotate(0, -6, 0)');
+        clawRight.setAttribute('transform', 'rotate(0, 6, 0)');
+        pill.textContent = '2. BOOM LIFTED (+90 MM)';
+      } else if (gesture === 'circle') {
+        turret.setAttribute('transform', 'translate(34, 0)');
+        shoulder.setAttribute('transform', 'rotate(12, 230, 252)');
+        elbow.setAttribute('transform', 'rotate(66, 230, 136)');
+        clawLeft.setAttribute('transform', 'rotate(0, -6, 0)');
+        clawRight.setAttribute('transform', 'rotate(0, 6, 0)');
+        pill.textContent = '3. TURRET ROTATED (90° YAW)';
+      } else if (gesture === 'wave') {
+        turret.setAttribute('transform', 'translate(-24, 0)');
+        shoulder.setAttribute('transform', 'rotate(-16, 230, 252)');
+        elbow.setAttribute('transform', 'rotate(42, 230, 136)');
+        clawLeft.setAttribute('transform', 'rotate(22, -6, 0)');
+        clawRight.setAttribute('transform', 'rotate(-22, 6, 0)');
+        pill.textContent = '4. CLAW GRIPPER CLAMPED';
+      }
+    }
+
+    // SLIDE 2 ONLY: Smart Room Lighting (4 distinct visible lighting scenes)
+    if (activeSlide === 1) {
+      document.querySelectorAll('#slide-1 .action-card').forEach(c => c.classList.remove('active'));
+      const activeCard = document.getElementById('light-card-' + gesture);
+      if (activeCard) activeCard.classList.add('active');
+
+      const room = document.getElementById('room3d');
+      const pill = document.getElementById('lightStatePill');
+      const switchText = document.getElementById('switchText');
+
+      room.classList.remove('mode-on', 'mode-ambient', 'mode-dim');
+
+      if (gesture === 'idle') {
+        pill.textContent = '1. LIGHTS OFF (STANDBY)';
+        switchText.textContent = 'OFF';
+      } else if (gesture === 'up_down') {
+        room.classList.add('mode-on');
+        pill.textContent = '2. FULL BRIGHT ON (100%)';
+        switchText.textContent = '100%';
+      } else if (gesture === 'circle') {
+        room.classList.add('mode-ambient');
+        pill.textContent = '3. CYAN AMBIENT MODE';
+        switchText.textContent = 'RGB';
+      } else if (gesture === 'wave') {
+        room.classList.add('mode-dim');
+        pill.textContent = '4. WARM NIGHT DIM (30%)';
+        switchText.textContent = '30%';
+      }
+    }
+  }
+
+  // Web Serial API for Live Arduino UNO Q Connection
+  async function connectArduinoUSB() {
+    const btn = document.getElementById('usbBtn');
+    if (!('serial' in navigator)) {
+      alert('Please open this HTML file in Google Chrome or Microsoft Edge on desktop to connect via USB.');
+      return;
+    }
+    try {
+      const port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+      btn.textContent = '🟢 Arduino Connected';
+      btn.classList.add('connected');
+
+      const decoder = new TextDecoderStream();
+      port.readable.pipeTo(decoder.writable);
+      const reader = decoder.readable.getReader();
+
+      let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += value;
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          const match = line.match(/Gesture:\s*(idle|up_down|circle|wave)\s*\(([0-9.]+)%/i);
+          if (match) {
+            handleGesture(match[1].toLowerCase(), parseFloat(match[2]) / 100.0);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Serial error:', err);
+    }
+  }
+</script>
+</body>
+</html>
